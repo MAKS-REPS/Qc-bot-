@@ -19,11 +19,17 @@ intents = discord.Intents.all()
 class TicketMenu(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="DOSTĘP", description="Pomoc z dostępem", emoji="🔑"),
-            discord.SelectOption(label="POMOC Z ZAMÓWIENIEM", description="Pomoc z zamówieniem", emoji="🛒"),
-            discord.SelectOption(label="POMOC Z SHIPEM", description="Problemy z przesyłką", emoji="🚛"),
+            discord.SelectOption(label="POMOC Z ZAMÓWIENIEM", description="Kliknij, jeśli potrzebujesz pomocy z zamówieniem", emoji="🛒"),
+            discord.SelectOption(label="PROBLEM Z SHIPPINGIEM", description="Kliknij, jeśli masz problem z shippingiem", emoji="🚛"),
+            discord.SelectOption(label="PROBLEM Z BOTEM", description="Kliknij, aby zgłosić problem z botem", emoji="🤖"),
         ]
-        super().__init__(placeholder="❌ Nie wybrano kategorii", min_values=1, max_values=1, options=options, custom_id="persistent_ticket_select")
+        super().__init__(
+            placeholder="❌ Nie wybrano żadnej z kategorii", 
+            min_values=1, 
+            max_values=1, 
+            options=options, 
+            custom_id="persistent_ticket_select"
+        )
 
     async def callback(self, interaction: discord.Interaction):
         guild = interaction.guild
@@ -36,7 +42,12 @@ class TicketMenu(discord.ui.Select):
             admin_role: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True)
         }
         channel = await guild.create_text_channel(name=f"ticket-{interaction.user.name}", category=category, overwrites=overwrites)
-        embed = discord.Embed(title="🎫 MAKS REPS × TICKET", description=f"Witaj {interaction.user.mention}!\nZaraz Ci pomożemy.", color=MAKS_BLUE)
+        
+        embed = discord.Embed(
+            title="🎫 MAKS REPS × TICKET", 
+            description=f"Witaj {interaction.user.mention}!\nWybrałeś: **{self.values[0]}**.\nZaraz ktoś z administracji Ci pomoże.", 
+            color=MAKS_BLUE
+        )
         await channel.send(content=f"{interaction.user.mention} | {admin_role.mention}", embed=embed)
         await interaction.response.send_message(f"✅ Otwarto ticket: {channel.mention}", ephemeral=True)
 
@@ -77,26 +88,34 @@ class MaksBot(commands.Bot):
 
     async def setup_hook(self):
         self.add_view(TicketView())
-        self.add_view(RoleView()) # Rejestracja roli na stałe
+        self.add_view(RoleView())
         await self.tree.sync()
 
 bot = MaksBot()
 
 @bot.event
 async def on_ready():
-    print(f"✅ Bot Maks Reps gotowy!")
+    print(f"✅ Bot Maks Reps online!")
 
-# POWITANIA
+# --- POWITANIA (MAKS REPS) ---
 @bot.event
 async def on_member_join(member):
     channel = bot.get_channel(WELCOME_CHANNEL_ID)
     if channel:
-        embed = discord.Embed(title="👋 Maks Reps × WITAMY", color=MAKS_BLUE)
-        embed.description = f"• 👶 × Witaj {member.mention} na **Maks Reps**\n• 👥 × Osoba nr **{member.guild.member_count}**"
+        count = member.guild.member_count
+        embed = discord.Embed(
+            title="👋 Maks Reps × WITAMY",
+            description=(
+                f"• 🤱 × Witaj {member.mention} na **Maks Reps**\n"
+                f"• 👥 × Jesteś **{count} osobą** na naszym serwerze!\n"
+                f"• ✨ × Liczymy, że zostaniesz z nami na dłużej!"
+            ),
+            color=MAKS_BLUE
+        )
         embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
 
-# KOMENDA /PANEL
+# --- KOMENDA /PANEL ---
 @bot.tree.command(name="panel", description="Wybierz typ panelu do wysłania")
 @app_commands.choices(typ=[
     app_commands.Choice(name="Tickety (Pomoc)", value="tickets"),
@@ -108,7 +127,11 @@ async def panel(interaction: discord.Interaction, typ: str):
         return
 
     if typ == "tickets":
-        embed = discord.Embed(title="🚨 MAKS REPS × CENTRUM POMOCY", description="**Wybierz kategorię z menu poniżej, aby utworzyć zgłoszenie.**", color=MAKS_BLUE)
+        embed = discord.Embed(
+            title="🚨 MAKS REPS × CENTRUM POMOCY", 
+            description="**Wybierz kategorię z menu poniżej, aby utworzyć zgłoszenie.**", 
+            color=MAKS_BLUE
+        )
         await interaction.response.send_message(embed=embed, view=TicketView())
     
     elif typ == "roles":
