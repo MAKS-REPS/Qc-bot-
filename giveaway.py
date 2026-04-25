@@ -4,20 +4,22 @@ import asyncio
 import random
 import re
 
+# ID roli dającej 2x szansy (z Twojego pytania)
 BONUS_ROLE_ID = 1497656242615746721
 
 class GiveawayView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None) # timeout=None, aby przycisk nie wygasł
+        # timeout=None sprawia, że przycisk nie "gaśnie"
+        super().__init__(timeout=None)
         self.entries = []
 
-    @discord.ui.button(emoji="🎉", style=discord.ButtonStyle.blurple, custom_id="join_giveaway")
+    @discord.ui.button(emoji="🎉", style=discord.ButtonStyle.blurple, custom_id="persistent_join_button")
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id in self.entries:
             return await interaction.response.send_message("Już bierzesz udział!", ephemeral=True)
         
         self.entries.append(interaction.user.id)
-        await interaction.response.send_message("Dołączyłeś do giveaway!", ephemeral=True)
+        await interaction.response.send_message("Dołączyłeś do konkursu! Powodzenia!", ephemeral=True)
 
 def parse_time(time_str):
     pos = {"s": 1, "m": 60, "h": 3600, "d": 86400}
@@ -27,11 +29,11 @@ def parse_time(time_str):
     return None
 
 async def run_giveaway(interaction, tytul, opis, sekundy, zwyciezcy, kolor_hex):
-    # Konwersja koloru
+    # Konwersja koloru HEX na discord.Color
     try:
-        color_value = int(kolor_hex.replace("#", ""), 16)
+        color_val = int(kolor_hex.replace("#", ""), 16)
     except:
-        color_value = 0x3498db
+        color_val = 0x3498db
 
     end_time = datetime.datetime.now() + datetime.timedelta(seconds=sekundy)
     timestamp = int(end_time.timestamp())
@@ -39,7 +41,7 @@ async def run_giveaway(interaction, tytul, opis, sekundy, zwyciezcy, kolor_hex):
     embed = discord.Embed(
         title=tytul,
         description=f"{opis}\n\n**Konta mają być nowe, na dowód należy wysłać ssa po założeniu / brak spełnienia wymagań = ponowne losowanie**",
-        color=discord.Color(color_value)
+        color=discord.Color(color_val)
     )
     embed.add_field(name="Ends:", value=f"<t:{timestamp}:R> (<t:{timestamp}:f>)", inline=False)
     embed.add_field(name="Hosted by:", value=interaction.user.mention, inline=True)
@@ -48,35 +50,42 @@ async def run_giveaway(interaction, tytul, opis, sekundy, zwyciezcy, kolor_hex):
 
     view = GiveawayView()
     await interaction.response.send_message(content="🎉 **GIVEAWAY** 🎉", embed=embed, view=view)
+    
     msg = await interaction.original_response()
 
+    # Czekamy do zakończenia konkursu
     await asyncio.sleep(sekundy)
 
     if not view.entries:
-        return await interaction.followup.send(f"Nikt nie wziął udziału w **{tytul}**.")
+        return await interaction.followup.send(f"Giveaway zakończony! Nikt nie wziął udziału w **{tytul}**.")
 
-    # System wag (2x szansa dla roli)
+    # SYSTEM WAG: Rola ID ...721 dostaje 2 losy
     pool = []
-    for u_id in view.entries:
-        pool.append(u_id)
-        member = interaction.guild.get_member(u_id)
+    guild = interaction.guild
+    for user_id in view.entries:
+        pool.append(user_id) # Pierwszy los
+        
+        member = guild.get_member(user_id)
         if member and any(r.id == BONUS_ROLE_ID for r in member.roles):
-            pool.append(u_id)
+            pool.append(user_id) # Drugi los (2x szansa)
 
-    # Losowanie
+    # Wybieranie zwycięzców bez powtórek
     winners_list = []
-    actual_winners_count = min(zwyciezcy, len(set(view.entries)))
-    while len(winners_list) < actual_winners_count:
-        w_id = random.choice(pool)
-        if w_id not in winners_list:
-            winners_list.append(w_id)
-
-    mentions = ", ".join([f"<@{wid}>" for wid in winners_list])
+    max_winners = min(zwyciezcy, len(set(view.entries)))
     
+    while len(winners_list) < max_winners:
+        winner = random.choice(pool)
+        if winner not in winners_list:
+            winners_list.append(winner)
+
+    mentions = ", ".join([f"<@{w}>" for w in winners_list])
+
+    # Edycja embeda na koniec
     end_embed = embed.copy()
     end_embed.clear_fields()
-    end_embed.add_field(name="Zwycięzcy:", value=mentions if mentions else "Brak", inline=False)
+    end_embed.description = f"Zakończono! Nagroda: **{tytul}**"
+    end_embed.add_field(name="Zwycięzcy:", value=mentions, inline=False)
     end_embed.color = discord.Color.red()
-    
+
     await msg.edit(embed=end_embed, view=None)
-    await interaction.followup.send(f"Gratulacje {mentions}! Wygraliście: **{tytul}**!")
+    await interaction.followup.send(f"🎉 Gratulacje {mentions}! Wygraliście: **{tytul}**!")
