@@ -6,8 +6,8 @@ import os
 # Importy Twoich plików:
 from welcome import handle_welcome
 from roles import RoleView
-# Importy z nowego pliku giveaway:
-from giveaway import GiveawayView, parse_time, run_giveaway_logic
+# NOWE: Importujemy giveaway
+from giveaway import GiveawayView, parse_time, start_giveaway 
 
 # --- KONFIGURACJA ---
 WELCOME_CHANNEL_ID = 1457756805173084309
@@ -23,12 +23,10 @@ class MaksBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Rejestrujemy widoki z innych plików
+        # Rejestrujemy widoki ról
         self.add_view(RoleView(ROLE_TIKTOK_ID, ROLE_PROMOCJE_ID))
-        
-        # Rejestrujemy widok Giveawaya, aby przycisk działał nawet po restarcie bota
+        # NOWE: Rejestrujemy widok giveaway, żeby przycisk działał po restarcie
         self.add_view(GiveawayView())
-        
         await self.tree.sync()
 
 bot = MaksBot()
@@ -42,33 +40,24 @@ async def panel(interaction: discord.Interaction, typ: str):
     # Logika sprawdzania uprawnień i wysyłania widoków...
     pass
 
-# --- KOMENDA GIVEAWAY ---
+# --- NOWA KOMENDA GIVEAWAY ---
 @bot.tree.command(name="givcreate", description="Tworzy nowy giveaway")
 @app_commands.describe(
     tytul="Tytuł konkursu",
-    opis="Opis wymagań (np. link, co trzeba zrobić)",
-    czas="Czas trwania (format np. 10m, 1h, 2d)",
-    zwyciezcy="Ilu będzie zwycięzców?",
-    kolor="Kolor paska bocznego w HEX (np. #5865F2) - opcjonalnie"
+    opis="Nagroda i opis",
+    czas="Czas trwania (np. 10m, 1h, 1d)",
+    zwyciezcy="Ilu zwycięzców",
+    kolor="Kolor paska HEX (np. #ff0000)"
 )
-async def givcreate(
-    interaction: discord.Interaction, 
-    tytul: str, 
-    opis: str, 
-    czas: str, 
-    zwyciezcy: int, 
-    kolor: str = "#5865F2"
-):
-    # Weryfikacja uprawnień - nie każdy ma prawo robić giveaway
+async def givcreate(interaction: discord.Interaction, tytul: str, opis: str, czas: str, zwyciezcy: int, kolor: str = "#3498db"):
     if not interaction.user.guild_permissions.administrator:
-        return await interaction.response.send_message("Nie masz uprawnień administratora, aby tego użyć!", ephemeral=True)
+        return await interaction.response.send_message("Brak uprawnień!", ephemeral=True)
 
     sekundy = parse_time(czas)
     if not sekundy:
-        return await interaction.response.send_message("Podałeś błędny format czasu! Użyj s (sekundy), m (minuty), h (godziny) lub d (dni). Np. `30m`", ephemeral=True)
+        return await interaction.response.send_message("Błędny format czasu!", ephemeral=True)
 
-    # Przekierowujemy wywołanie do odseparowanego pliku giveaway.py
-    await run_giveaway_logic(interaction, tytul, opis, sekundy, zwyciezcy, kolor, MAKS_BLUE)
+    await start_giveaway(interaction, tytul, opis, sekundy, zwyciezcy, kolor)
 
 token = os.getenv('DISCORD_TOKEN')
 bot.run(token)
