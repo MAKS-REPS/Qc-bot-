@@ -27,7 +27,7 @@ def parse_time(time_str):
         return int(match.group(1)) * pos[match.group(2)]
     return None
 
-async def run_giveaway_logic(interaction, tytul, opis, sekundy, zwyciezcy, kolor_hex, default_color, obrazek_url=None):
+async def run_giveaway_logic(interaction, tytul, opis, sekundy, zwyciezcy, kolor_hex, default_color):
     try:
         color_val = int(kolor_hex.replace("#", ""), 16)
     except:
@@ -36,16 +36,13 @@ async def run_giveaway_logic(interaction, tytul, opis, sekundy, zwyciezcy, kolor
     end_time = datetime.datetime.now() + datetime.timedelta(seconds=sekundy)
     timestamp = int(end_time.timestamp())
 
-    # Teraz opis jest w 100% Twoim tekstem
+    # Opis jest teraz w 100% Twoim tekstem z komendy
     embed = discord.Embed(
         title=tytul,
-        description=opis.replace("\\n", "\n"), # Pozwala na używanie \n dla nowej linii
+        description=opis.replace("\\n", "\n"), 
         color=discord.Color(color_val)
     )
     
-    if obrazek_url:
-        embed.set_image(url=obrazek_url)
-
     embed.add_field(name="Ends:", value=f"<t:{timestamp}:R> (<t:{timestamp}:f>)", inline=False)
     embed.add_field(name="Hosted by:", value=interaction.user.mention, inline=True)
     embed.add_field(name="Winners:", value=str(zwyciezcy), inline=True)
@@ -60,7 +57,7 @@ async def run_giveaway_logic(interaction, tytul, opis, sekundy, zwyciezcy, kolor
     if not view.entries:
         return await interaction.followup.send(f"Konkurs **{tytul}** zakończył się brakiem chętnych.")
 
-    # Logika 2x szansy
+    # Logika 2x szansy dla roli
     pool = []
     guild = interaction.guild
     for user_id in view.entries:
